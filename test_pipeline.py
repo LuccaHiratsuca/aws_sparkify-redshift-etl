@@ -47,7 +47,7 @@ def column_names(create_statement):
     return [
         line.strip().split()[0].lower()
         for line in body.strip().splitlines()
-        if line.strip()
+        if line.strip() and not line.strip().startswith("--")
     ]
 
 

@@ -63,7 +63,10 @@ CREATE TABLE IF NOT EXISTS staging_events (
     location        VARCHAR(512),
     method          VARCHAR(16),
     page            VARCHAR(64),
-    registration    BIGINT,
+    -- registration arrives as a JSON float ("registration": 1540919166796.0).
+    -- Redshift rejects a decimal point when loading into BIGINT, so this is
+    -- deliberately a float column. The field is unused downstream.
+    registration    DOUBLE PRECISION,
     sessionId       INTEGER,
     song            VARCHAR(512),
     status          INTEGER,
@@ -132,10 +135,14 @@ CREATE TABLE IF NOT EXISTS users (
 DISTSTYLE ALL;
 """
 
+# NOT NULL is the one constraint Redshift actually enforces, so it is declared
+# only on keys -- values the pipeline guarantees. `title` and `name` come from a
+# scraped dataset, and a single missing value there should surface as a data
+# quality report rather than abort a 15k-row load, so they stay nullable.
 song_table_create = """
 CREATE TABLE IF NOT EXISTS songs (
     song_id     VARCHAR(32)     NOT NULL    PRIMARY KEY    DISTKEY,
-    title       VARCHAR(512)    NOT NULL,
+    title       VARCHAR(512),
     artist_id   VARCHAR(32)                                SORTKEY,
     year        INTEGER,
     duration    NUMERIC(12, 5)
@@ -145,7 +152,7 @@ CREATE TABLE IF NOT EXISTS songs (
 artist_table_create = """
 CREATE TABLE IF NOT EXISTS artists (
     artist_id   VARCHAR(32)     NOT NULL    PRIMARY KEY    SORTKEY,
-    name        VARCHAR(512)    NOT NULL,
+    name        VARCHAR(512),
     location    VARCHAR(512),
     latitude    NUMERIC(10, 5),
     longitude   NUMERIC(10, 5)
@@ -306,7 +313,8 @@ SELECT
     EXTRACT(week    FROM start_time)    AS week,
     EXTRACT(month   FROM start_time)    AS month,
     EXTRACT(year    FROM start_time)    AS year,
-    EXTRACT(dayofweek FROM start_time)  AS weekday
+    -- DOW is Redshift's documented datepart for day-of-week: 0 = Sunday.
+    EXTRACT(dow     FROM start_time)    AS weekday
 FROM (SELECT DISTINCT start_time FROM songplays) distinct_times;
 """
 

@@ -274,8 +274,9 @@ def authorize_ingress(ec2, props, port):
 
     security_group = ec2.SecurityGroup(id=groups[0]["VpcSecurityGroupId"])
     try:
+        # The resource already identifies the group by id. Passing GroupName as
+        # well is rejected for security groups in a non-default VPC.
         security_group.authorize_ingress(
-            GroupName=security_group.group_name,
             CidrIp="0.0.0.0/0",
             IpProtocol="TCP",
             FromPort=port,
